@@ -1,0 +1,121 @@
+import numpy as np
+from sklearn.metrics import pairwise_distances_argmin_min
+from fcmeans import FCM
+import matplotlib.pyplot as plt
+
+# Define the Osprey Optimization Algorithm (OOA)
+def OOA(SearchAgents, Max_iterations, lowerbound, upperbound, dimension, fitness):
+    lowerbound = np.ones(dimension) * lowerbound  # Lower limit for variables
+    upperbound = np.ones(dimension) * upperbound  # Upper limit for variables
+
+    # INITIALIZATION
+    X = np.random.rand(SearchAgents, dimension) * (upperbound - lowerbound) + lowerbound
+
+    fit = np.array([fitness(X[i, :]) for i in range(SearchAgents)])
+
+    # OOA Main Loop
+    for t in range(Max_iterations):
+        # Update: BEST proposed solution
+        Fbest, blocation = np.min(fit), np.argmin(fit)
+
+        if t == 0:
+            xbest = X[blocation, :].copy()  # Optimal location
+            fbest = Fbest  # The optimization objective function
+        elif Fbest < fbest:
+            fbest = Fbest
+            xbest = X[blocation, :].copy()
+
+        for i in range(SearchAgents):
+            # Phase 1: POSITION IDENTIFICATION AND HUNTING THE FISH (EXPLORATION)
+            fish_position = np.where(fit < fit[i])[0]
+            if len(fish_position) == 0:
+                selected_fish = xbest
+            else:
+                if np.random.rand() < 0.5:
+                    selected_fish = xbest
+                else:
+                    k = np.random.choice(fish_position)
+                    selected_fish = X[k, :]
+
+            I = np.round(1 + np.random.rand())
+            X_new_P1 = X[i, :] + np.random.rand() * (selected_fish - I * X[i, :])
+            X_new_P1 = np.clip(X_new_P1, lowerbound, upperbound)
+
+            # Update position based on new fitness
+            fit_new_P1 = fitness(X_new_P1)
+            if fit_new_P1 < fit[i]:
+                X[i, :] = X_new_P1
+                fit[i] = fit_new_P1
+
+            # PHASE 2: CARRYING THE FISH TO THE SUITABLE POSITION (EXPLOITATION)
+            X_new_P2 = X[i, :] + (lowerbound + np.random.rand() * (upperbound - lowerbound)) / (t + 1)
+            X_new_P2 = np.clip(X_new_P2, lowerbound, upperbound)
+
+            # Update position based on new fitness
+            fit_new_P2 = fitness(X_new_P2)
+            if fit_new_P2 < fit[i]:
+                X[i, :] = X_new_P2
+                fit[i] = fit_new_P2
+
+        best_so_far = fbest
+
+    Best_score = fbest
+    Best_pos = xbest
+    OOA_curve = best_so_far
+
+    return Best_score, Best_pos, OOA_curve
+
+# Define an example fitness function
+def example_fitness(x, data):
+    return np.sum((x - data) ** 2)
+
+# Main Function to run OOA with FCM
+def main():
+    # Data Input
+    num_data_points = int(input('Enter the number of data points: '))
+    data_dim = int(input('Enter the dimensionality of the data: '))
+    print('Enter the data points (each point as a row, with features separated by spaces):')
+
+    data = np.zeros((num_data_points, data_dim))
+    for i in range(num_data_points):
+        data[i, :] = np.array(input(f'Data point {i + 1}: ').split(), dtype=float)
+
+    # Number of clusters for FCM
+    num_clusters = int(input('Enter the number of clusters for FCM: '))
+
+    # Parameters for OOA
+    SearchAgents = int(input('Enter the number of search agents (e.g., 30): '))
+    Max_iterations = int(input('Enter the maximum number of iterations (e.g., 100): '))
+    lowerbound = float(input('Enter the lower bound for variables: '))
+    upperbound = float(input('Enter the upper bound for variables: '))
+
+    # Define the fitness function
+    objective_function = lambda x: example_fitness(x, data)
+
+    # Call OOA
+    Best_score, Best_pos, OOA_curve = OOA(SearchAgents, Max_iterations, lowerbound, upperbound, data_dim, objective_function)
+
+    # Display OOA results
+    print('Best solution found by OOA:')
+    print(Best_pos)
+    print('Best fitness value:')
+    print(Best_score)
+
+    # Perform FCM clustering
+    fcm = FCM(n_clusters=num_clusters)
+    fcm.fit(data)
+    centers = fcm.centers
+    labels = fcm.predict(data)
+
+    # Visualize clustering result
+    plt.figure()
+    for i in range(num_clusters):
+        cluster_points = data[labels == i]
+        plt.scatter(cluster_points[:, 0], cluster_points[:, 1], label=f'Cluster {i + 1}')
+        plt.scatter(centers[i, 0], centers[i, 1], marker='x', s=100, c='black')
+    plt.title('Fuzzy C-Means Clustering')
+    plt.legend()
+    plt.show()
+
+if __name__ == "__main__":
+    main()
