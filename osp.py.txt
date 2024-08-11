@@ -65,9 +65,7 @@ def OOA(SearchAgents, Max_iterations, lowerbound, upperbound, dimension, fitness
 
     return Best_score, Best_pos, OOA_curve
 
-# Define an example fitness function
-def example_fitness(x, data):
-    return np.sum((x - data) ** 2)
+objective_function = lambda x: spherical_function(x)
 
 # Main Function to run OOA with FCM
 def main():
